@@ -23,18 +23,24 @@ export default (Book: Book) => {
 	const { ISBN, title, author, quantity, shelfLocation } = request.body;
 
 	const ISBNInteger = BigInt((ISBN as string).replaceAll('-', ''));
+	const ISBNExists = await exists(Book, ISBNInteger);
 	const parametersValid = arePostParametersValid(ISBNInteger, title, author, quantity);
 
 	if(!parametersValid) {
-	    response.sendStatus(400);
+	    response.status(400).send({ message: "Invalid parameters" });
+	    return;
+	}
+
+	if(ISBNExists) {
+	    response.status(400).send({ message: "Book with the same ISBN already exists" });
 	    return;
 	}
 
 	try {
 	    await Book.create({ ISBN: ISBNInteger, title, author, quantity, shelfLocation });
-	    response.sendStatus(201);
+	    response.status(201).send({ message: "Book added successfully" });
 	} catch (error) {
-	    response.sendStatus(400);
+	    response.status(500).send({ message: "Internal server error" });
 	}     
     });
 
@@ -45,13 +51,17 @@ export default (Book: Book) => {
 	const ISBNExists = await exists(Book, ISBNInteger);
 
 	if(ISBNExists) {
-	    Book.update(
-		{ title, author, quantity, shelfLocation },
-		{ where: { ISBN: ISBNInteger } }
-	    );
-	    response.sendStatus(204);
+	    try {
+		Book.update(
+		    { title, author, quantity, shelfLocation },
+		    { where: { ISBN: ISBNInteger } }
+		);
+		response.status(200).send({ message: "Book data updated successfully" });
+	    } catch (error) {
+		response.status(500).send({ message: "Internal server error" });
+	    }
 	} else {
-	    response.sendStatus(400);
+	    response.status(400).send({ message: "ISBN does not exist." });
 	}
     });
 
@@ -61,9 +71,9 @@ export default (Book: Book) => {
 
 	if(ISBNExists) {
 	    Book.destroy({ where: { ISBN: ISBNInteger } });
-	    response.sendStatus(204);
+	    response.status(200).send({ message: "Book deleted successfully" });
 	} else {
-	    response.sendStatus(400);
+	    response.status(400).send({ message: "Book with the given ISBN does not exist"});
 	}
     });
 
@@ -72,7 +82,7 @@ export default (Book: Book) => {
 	const { ISBN, title, author } = request.body;
 
 	if(!ISBN && !title && !author) {
-	    response.send(await Book.findAll());
+	    response.status(200).send(await Book.findAll());
 	    return;
 	}
 
@@ -81,13 +91,14 @@ export default (Book: Book) => {
 	    : null;
 
 	let queryFields = [];
+
 	if(ISBNInteger) queryFields.push({ISBN: ISBNInteger});
 	if(title) queryFields.push({title});
 	if(author) queryFields.push({author});
 
 	console.log(queryFields);
 
-	response.send(await Book.findAll({ 
+	response.status(200).send(await Book.findAll({ 
 	    where: { [Op.or]: queryFields } 
 	}));
     });
