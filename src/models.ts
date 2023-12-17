@@ -5,8 +5,10 @@ import { Sequelize, DataTypes } from 'sequelize'
 // psql
 // \password
 // write new password
+// create database 'library-management'
 // connection string is `postgres://username:password@host:port/database-name`
 // username=postgres, password=password, host=localhost, port=5432, database-name=library-management
+
 
 export function initDatabase(sequelize: Sequelize) {
     sequelize.authenticate()
@@ -15,12 +17,6 @@ export function initDatabase(sequelize: Sequelize) {
 
 
     // Book: { ISBN, title, author, quantity, shelf location }
-    // Operations:
-    // 	- Add: 						POST:	/books
-    // 	- Update					PATCH:	/books
-    // 	- Delete					DELETE: /books
-    // 	- List all 					GET: 	/books, no body
-    // 	- Search by title, author, or ISBN 		GET:	/books, optional title, author, or ISBN, error on combinations?
     const Book = sequelize.define('Book', {
 	ISBN: {
 	    type: DataTypes.BIGINT,
@@ -55,5 +51,56 @@ export function initDatabase(sequelize: Sequelize) {
 	}
     });
 
-    return { Book };
+    // Borrower: { ID, name, email, registered date }
+    // registered date is automatically created by postgres (createdAt)
+    const Borrower = sequelize.define('Borrower', {
+	id: {
+	    type: DataTypes.INTEGER, 
+	    primaryKey: true,
+	    autoIncrement: true,
+	},
+
+	name: {
+	    type: DataTypes.STRING,
+	    allowNull: false,
+	    validate: { notEmpty: true }
+	},
+
+	email: {
+	    type: DataTypes.STRING,
+	    allowNull: false,
+	    validate: { notEmpty: true }
+	},
+    });
+
+    // 	- Extra borrower id - ISBN table (This borrower has borrowed these
+    // 	books), with borrow (createdAt) and borrow durations.
+    const Borrowing = sequelize.define('Borrowing', {
+	BorrowerId: {
+	    type: DataTypes.INTEGER,
+	    references: {
+		model: Borrower,
+		key: 'id'
+	    }
+	},
+
+	BookISBN: {
+	    type: DataTypes.BIGINT,
+	    references: {
+		model: Book,
+		key: 'ISBN'
+	    }
+	},
+
+	dueDate: {
+	    type: DataTypes.DATE,
+	    allowNull: false,
+	}
+    }, {
+	timestamps: false
+    });
+
+    Book.belongsToMany(Borrower, { through: Borrowing });
+    Borrower.belongsToMany(Book, { through: Borrowing });
+    return { sequelize, Book, Borrower, Borrowing };
 }
