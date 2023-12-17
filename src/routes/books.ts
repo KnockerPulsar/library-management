@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { ModelCtor, Model, Op } from 'sequelize';
+import { ModelStatic, Model, Op } from 'sequelize';
+import { ISBNExists, errorHandler } from '../utils';
 
-type Book = ModelCtor<Model<any, any>>;
+type Book = ModelStatic<Model<any, any>>;
+// Operations:
+// 	- Add: 						POST:	/books
+// 	- Update					PATCH:	/books
+// 	- Delete					DELETE: /books
+// 	- List all 					GET: 	/books, no body
+// 	- Search by title, author, or ISBN 		GET:	/books, optional title, author, or ISBN
 
-async function exists(Book: Book, ISBNInteger: BigInt): Promise<boolean> {
-   return (await Book.findOne({ where: { ISBN: ISBNInteger }})) != null; 
-}
 
 function arePostParametersValid(ISBN: BigInt, title: string, author: string, quantity: number): boolean {
     return (
@@ -16,14 +20,17 @@ function arePostParametersValid(ISBN: BigInt, title: string, author: string, qua
     );
 }
 
+function parseISBN(ISBNString: string): BigInt {
+    return BigInt((ISBNString as string).replaceAll('-', ''));
+}
+
 export default (Book: Book) => {
     const router = Router();
 
     router.post('/', async (request: Request, response: Response) => {
 	const { ISBN, title, author, quantity, shelfLocation } = request.body;
 
-	const ISBNInteger = BigInt((ISBN as string).replaceAll('-', ''));
-	const ISBNExists = await exists(Book, ISBNInteger);
+	const ISBNInteger = parseISBN(ISBN);
 	const parametersValid = arePostParametersValid(ISBNInteger, title, author, quantity);
 
 	if(!parametersValid) {
@@ -31,50 +38,53 @@ export default (Book: Book) => {
 	    return;
 	}
 
-	if(ISBNExists) {
+	if(await ISBNExists(Book, ISBNInteger)) {
 	    response.status(400).send({ message: "Book with the same ISBN already exists" });
 	    return;
 	}
 
-	try {
-	    await Book.create({ ISBN: ISBNInteger, title, author, quantity, shelfLocation });
-	    response.status(201).send({ message: "Book added successfully" });
-	} catch (error) {
-	    response.status(500).send({ message: "Internal server error" });
-	}     
+	await Book.create({ ISBN: ISBNInteger, title, author, quantity, shelfLocation });
+	response.status(201).send({ message: "Book added successfully" });
     });
 
     router.patch('/', async (request: Request, response: Response) => {
 	const { ISBN, title, author, quantity, shelfLocation } = request.body;
 
-	const ISBNInteger = BigInt((ISBN as string).replaceAll('-', ''));
-	const ISBNExists = await exists(Book, ISBNInteger);
+	const ISBNInteger = parseISBN(ISBN);
 
-	if(ISBNExists) {
-	    try {
-		Book.update(
-		    { title, author, quantity, shelfLocation },
-		    { where: { ISBN: ISBNInteger } }
-		);
-		response.status(200).send({ message: "Book data updated successfully" });
-	    } catch (error) {
-		response.status(500).send({ message: "Internal server error" });
-	    }
-	} else {
+	if(!(await ISBNExists(Book, ISBNInteger))) {
 	    response.status(400).send({ message: "ISBN does not exist." });
+	    return;
 	}
+
+	let updateFields: any = {}
+	if(title) updateFields.title = title;
+	if(author) updateFields.author = author;
+	if(quantity) updateFields.quantity = quantity;
+	if(shelfLocation) updateFields.shelfLocation = shelfLocation;
+
+	if(Object.keys(updateFields).length == 0)  {
+	    response.status(400).send({ message: "No fields given to update" });
+	    return;
+	}
+
+	Book.update(
+	    updateFields,
+	    { where: { ISBN: ISBNInteger } }
+	);
+	response.status(200).send({ message: "Book data updated successfully" });
     });
 
     router.delete('/', async (request: Request, response: Response) => {
-	const ISBNInteger = BigInt((request.body.ISBN as string).replaceAll('-', ''));
-	const ISBNExists = await exists(Book, ISBNInteger);
+	const ISBNInteger = parseISBN(request.body.ISBN);
 
-	if(ISBNExists) {
-	    Book.destroy({ where: { ISBN: ISBNInteger } });
-	    response.status(200).send({ message: "Book deleted successfully" });
-	} else {
+	if(!(await ISBNExists(Book, ISBNInteger))) {
 	    response.status(400).send({ message: "Book with the given ISBN does not exist"});
-	}
+	    return;
+	} 
+
+	Book.destroy({ where: { ISBN: ISBNInteger } });
+	response.status(200).send({ message: "Book deleted successfully" });
     });
 
     // ASSUMPTION: Can search with one or a combination of fields.
@@ -86,9 +96,10 @@ export default (Book: Book) => {
 	    return;
 	}
 
-	const ISBNInteger = request.body.ISBN != undefined? 
-	    BigInt((request.body.ISBN as string).replaceAll('-', ''))
-	    : null;
+	const ISBNInteger = 
+	    request.body.ISBN != undefined? 
+		parseISBN(request.body.ISBN)
+		: null;
 
 	let queryFields = [];
 
@@ -96,12 +107,13 @@ export default (Book: Book) => {
 	if(title) queryFields.push({title});
 	if(author) queryFields.push({author});
 
-	console.log(queryFields);
-
 	response.status(200).send(await Book.findAll({ 
-	    where: { [Op.or]: queryFields } 
+	    where: { [Op.or] : queryFields } 
 	}));
     });
+
+    // Use the error handler for this router
+    router.use(errorHandler);
 
     return router;
 };
