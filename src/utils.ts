@@ -20,9 +20,10 @@ export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number
 // Error handling function
 // Returns a 500 code, instead of crashing the whole application
 // Works with the help of express-async-errors
-export async function errorHandler(error: Error, _: Request, response: Response, next: NextFunction) {
+export async function errorHandler(error: Error, _request: Request, response: Response, _next: NextFunction) {
+    console.log(error.message);
+    console.log(error.stack);
     response.status(500).send({ 'message': 'Server error!' }); 
-    next(error);
 }
 
 export function parseISBN(ISBNString: string): BigInt {
