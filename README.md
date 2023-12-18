@@ -3,7 +3,7 @@ This is a small express.js project that implements a REST API to manage books, b
 
 ![api screenshot](./images/api.png)
 ***Api preview***
-![Schema Diagram](./image/schema-diagram.png)
+![Schema Diagram](./images/schema-diagram.png)
 ***Schema diagram***
 
 # How to use
