@@ -6,6 +6,7 @@ import booksRouter from './routes/books';
 import borrowersRouter from './routes/borrowers';
 import { ISBNExists, borrowerIdExists, errorHandler, isAlreadyBorrowed, parseISBN } from './utils'
 
+require('express-async-errors');
 
 import 'dotenv/config';
 

@@ -22,6 +22,7 @@ export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number
 // Works with the help of express-async-errors
 export async function errorHandler(error: Error, _: Request, response: Response, next: any) {
     response.status(500).send({ 'message': 'Server error!' }); 
+    next(error);
 }
 
 export function parseISBN(ISBNString: string): BigInt {
