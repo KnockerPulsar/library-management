@@ -1,7 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize'
 import pg from 'pg';
 
-
 export async function initDatabase() {
     const DB_USER = process.env.DB_USER;
     const DB_PASSWORD = process.env.DB_PASSWORD;

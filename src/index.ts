@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { initDatabase } from './models'
+import { initDatabase } from './shared/db'
 
 import booksRouter from './routes/books';
 import borrowersRouter from './routes/borrowers';
