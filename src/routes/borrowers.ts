@@ -50,7 +50,7 @@ export default (Borrower: Borrower) => {
      * tags:
      *   name: Borrowers
      *   description: The borrower managing API
-     * /borrower:
+     * /borrowers:
      *   post:
      *     summary: Create a new borrower
      *     tags: [Borrowers]
@@ -119,7 +119,7 @@ export default (Borrower: Borrower) => {
      * tags:
      *   name: Borrowers
      *   description: The borrower managing API
-     * /borrower:
+     * /borrowers:
      *   patch:
      *     summary: Update a borrower
      *     tags: [Borrowers]
@@ -195,7 +195,7 @@ export default (Borrower: Borrower) => {
      * tags:
      *   name: Borrowers
      *   description: The borrower managing API
-     * /borrower:
+     * /borrowers:
      *   delete:
      *     summary: Delete a borrower
      *     tags: [Borrowers]
