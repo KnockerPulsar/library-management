@@ -1,20 +1,44 @@
 import { Sequelize, DataTypes } from 'sequelize'
+import pg from 'pg';
 
 // Download postgres
 // `sudo -u postgres -i`, default username on ubuntu is postgres
 // psql
 // \password
-// write new password
-// create database 'library-management'
-// connection string is `postgres://username:password@host:port/database-name`
-// username=postgres, password=password, host=localhost, port=5432, database-name=library-management
+// write new password twice
+// Set environment variables in the .env file
+// Example: 
+// 		DB_USER=postgres
+// 		DB_PASSWORD=password
+// 		DB_ADDRESS=localhost
+// 		DB_PORT=5432
+// 		DB_NAME=library-management
 
 
-export function initDatabase(sequelize: Sequelize) {
-    sequelize.authenticate()
-    .then(() => console.log("Connected to postgres"))
-    .catch((e) => console.log(`Failed to connect to postgres: ${e}`));
+export async function initDatabase(process: any) {
+    const DB_USER = process.env.DB_USER;
+    const DB_PASSWORD = process.env.DB_PASSWORD;
+    const DB_ADDRESS = process.env.DB_ADDRESS;
+    const DB_PORT = process.env.DB_PORT;
+    const DB_NAME = process.env.DB_NAME;
 
+    // https://medium.com/@aashisingh640/node-js-postgresql-create-database-if-it-doesnt-exist-1a93f38629ab
+    const client = new pg.Client(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_ADDRESS}:${DB_PORT}`);
+	await client.connect();
+    const res = await client.query(`SELECT datname FROM pg_catalog.pg_database WHERE datname = '${DB_NAME}'`);
+    if (res.rowCount === 0) {
+	console.log(`${DB_NAME} database not found, creating it.`);
+	await client.query(`CREATE DATABASE "${DB_NAME}";`);
+	console.log(`created database ${DB_NAME}`);
+    } else {
+	console.log(`${DB_NAME} database exists.`);
+    }
+    await client.end();
+
+    const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_ADDRESS}:${DB_PORT}/${DB_NAME}`);
+
+	await sequelize.authenticate();
+    console.log("Connected to postgres")
 
     // Book: { ISBN, title, author, quantity, shelf location }
     const Book = sequelize.define('Book', {
@@ -102,5 +126,6 @@ export function initDatabase(sequelize: Sequelize) {
 
     Book.belongsToMany(Borrower, { through: Borrowing });
     Borrower.belongsToMany(Book, { through: Borrowing });
+
     return { sequelize, Book, Borrower, Borrowing };
 }

@@ -1,20 +1,15 @@
 import express, { Request, Response } from 'express';
-import { Op, Sequelize } from 'sequelize'
+import { Op } from 'sequelize'
 import { initDatabase } from './models'
 
 import booksRouter from './routes/books';
 import borrowersRouter from './routes/borrowers';
-import { ISBNExists, borrowerIdExists, errorHandler, isAlreadyBorrowed } from './utils'
-import { request } from 'http';
+import { ISBNExists, borrowerIdExists, errorHandler, isAlreadyBorrowed, parseISBN } from './utils'
 
 
-const SERVER_PORT = 6970;
+import 'dotenv/config';
 
 const app = express();
-
-const sequelize = new Sequelize('postgres://postgres:password@localhost:5432/library-management');
-const db = initDatabase(sequelize);
-
 app.use(express.json());
 app.use(express.urlencoded());
 app.use((request: Request, _: Response, next: any) => {
@@ -22,112 +17,126 @@ app.use((request: Request, _: Response, next: any) => {
     next();
 });
 
-app.listen(SERVER_PORT, () => { console.log(`Listening at port ${SERVER_PORT}`) });
 
-db.sequelize.sync().then((_: any) => {
+app.listen(process.env.SERVER_PORT, () => { console.log(`Listening at port ${process.env.SERVER_PORT}`) });
 
-    app.use('/books', booksRouter(db.Book));
-    app.use('/borrowers', borrowersRouter(db.Borrower));
-    
-    // 	- Borrow a book			POST:		/borrow
-    app.post('/borrow', async (request: Request, response: Response) => {
-	const { borrowerId, bookISBN, borrowDuration } = request.body;
+initDatabase(process).then((db) => {
+    db.sequelize.sync().then((_: any) => {
+	app.use('/books', booksRouter(db.Book));
+	app.use('/borrowers', borrowersRouter(db.Borrower));
 
-	if(!borrowerId || !bookISBN || !borrowDuration) {
-	    response.status(400).send({ message: "Invalid request parameters" });
-	    return;
-	}
+	// 	- Borrow a book			POST:		/borrow
+	app.post('/borrow', async (request: Request, response: Response) => {
+	    const { borrowerId, bookISBN, borrowDuration } = request.body;
 
-	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
-	    response.status(400).send({ message: "Invalid borrower id" });
-	    return;
-	}
+	    if(!borrowerId || !bookISBN || !borrowDuration) {
+		response.status(400).send({ message: "Invalid request parameters" });
+		return;
+	    }
 
-	if(!(await ISBNExists(db.Book, bookISBN))) {
-	    response.status(400).send({ message: "Invalid ISBN" });
-	    return;
-	}
+	    if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+		response.status(400).send({ message: "Invalid borrower id" });
+		return;
+	    }
 
-	// Borrow duration unspecified, will assume 1, 7, and 30 days.
-	if(!([1, 7, 30].includes(borrowDuration))) {
-	    response.status(400).send({ message: "Invalid borrow duration" });
-	    return;
-	}
+	    if(!(await ISBNExists(db.Book, bookISBN))) {
+		response.status(400).send({ message: "Invalid ISBN" });
+		return;
+	    }
 
-	if((await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
-	    response.status(400).send({ message: "Book already borrowed" });
-	    return;
-	}
+	    // Borrow duration unspecified, will assume 1, 7, and 30 days.
+	    if(!([1, 7, 30].includes(borrowDuration))) {
+		response.status(400).send({ message: "Invalid borrow duration" });
+		return;
+	    }
 
-	let dueDate = new Date();
-	dueDate.setDate(dueDate.getDate() + borrowDuration);
-	
-	// For some reason, sequelize requires the keys of this table to have the first letter 
-	// capitalized (for foreign keys at least). Not doing so will just duplicate the foreign
-	// keys with capitalized names.
-	await db.Borrowing.create({
-	    BorrowerId: borrowerId, 
-	    BookISBN: bookISBN, 
-	    dueDate
+	    if((await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
+		response.status(400).send({ message: "Book already borrowed" });
+		return;
+	    }
+
+	    const row = (await db.Book.findByPk(bookISBN, { attributes: ['ISBN', 'quantity'] }))!;
+	    const quantity: number = row!.get('quantity') as number;
+
+	    if(quantity == 0) {
+		response.status(400).send({ message: "Book out of stock" });
+		return;
+	    }
+
+	    let dueDate = new Date();
+	    dueDate.setDate(dueDate.getDate() + borrowDuration);
+
+	    // For some reason, sequelize requires the keys of this table to have the first letter 
+	    // capitalized (for foreign keys at least). Not doing so will just duplicate the foreign
+	    // keys with capitalized names.
+	    await db.Borrowing.create({
+		BorrowerId: borrowerId,
+		BookISBN: bookISBN,
+		dueDate
+	    });
+	    row.set('quantity', quantity - 1);
+	    await row.save();
+
+	    response.status(200).send({ message: "Book borrowed successfully" });
 	});
-	response.status(200).send({ message: "Book borrowed successfully" });
-    });
 
-    // 	- Return a book			POST:		/return
-    app.post('/return',  async (request: Request, response: Response) => {
-	const { borrowerId, bookISBN } = request.body;
+	// 	- Return a book			POST:		/return
+	app.post('/return',  async (request: Request, response: Response) => {
+	    const { borrowerId, bookISBN } = request.body;
 
-	if(!borrowerId || !bookISBN) {
-	    response.status(400).send({ message: "Invalid request parameters" });
-	    return;
-	}
+	    if(!borrowerId || !bookISBN) {
+		response.status(400).send({ message: "Invalid request parameters" });
+		return;
+	    }
 
-	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
-	    response.status(400).send({ message: "Invalid borrower id" });
-	    return;
-	}
+	    if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+		response.status(400).send({ message: "Invalid borrower id" });
+		return;
+	    }
 
-	if(!(await ISBNExists(db.Book, bookISBN))) {
-	    response.status(400).send({ message: "Invalid ISBN" });
-	    return;
-	}
+	    if(!(await ISBNExists(db.Book, bookISBN))) {
+		response.status(400).send({ message: "Invalid ISBN" });
+		return;
+	    }
 
-	if(!(await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
-	    response.status(400).send({ message: "Book with the given ISBN is not borrowed" });
-	    return;
-	}
+	    if(!(await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
+		response.status(400).send({ message: "Book with the given ISBN is not borrowed" });
+		return;
+	    }
 
-	const BorrowerId = borrowerId;
-	const BookISBN = bookISBN;
-	await db.Borrowing.destroy({ where: { [Op.and]: [BorrowerId, BookISBN] } });
-	response.status(200).send({ message: "Book returned successfully" });
-    });
+	    const BorrowerId = borrowerId;
+	    const BookISBN = bookISBN;
+	    await db.Borrowing.destroy({ where: { [Op.and]: [BorrowerId, BookISBN] } });
+	    await db.Book.increment({ quantity: +1 }, { where: { ISBN: BookISBN } });
+	    response.status(200).send({ message: "Book returned successfully" });
+	});
 
-    // 	- List borrowed books		GET:		/borrowed
-    app.get('/borrowed', async (request: Request, response: Response) => {
-	const { borrowerId } = request.body;
+	// 	- List borrowed books		GET:		/borrowed
+	app.get('/borrowed', async (request: Request, response: Response) => {
+	    const { borrowerId } = request.body;
 
-	if(!borrowerId) {
-	    response.status(400).send({ message: "Invalid request parameters" });
-	    return;
-	}
+	    if(!borrowerId) {
+		response.status(400).send({ message: "Invalid request parameters" });
+		return;
+	    }
 
-	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
-	    response.status(400).send({ message: "Invalid borrower id" });
-	    return;
-	}
+	    if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+		response.status(400).send({ message: "Invalid borrower id" });
+		return;
+	    }
 
-	response.status(200).send(await db.Borrowing.findAll({ where: { BorrowerId: borrowerId }}));
-    });
+	    response.status(200).send(await db.Borrowing.findAll({ where: { BorrowerId: borrowerId }}));
+	});
 
-    app.get('/overdue',  async (request: Request, response: Response) => {
-	const today = (new Date());
-	response.status(200).send(await db.Borrowing.findAll({ where: { dueDate: { [Op.lt]: today } } }));
-    });
+	app.get('/overdue',  async (request: Request, response: Response) => {
+	    const today = (new Date());
+	    response.status(200).send(await db.Borrowing.findAll({ where: { dueDate: { [Op.lt]: today } } }));
+	});
 
-    app.get("/*", (_: Request, response: Response) => {
-	response.status(404).send({ message: "endpoint not found" });
+	app.get("/*", (_: Request, response: Response) => {
+	    response.status(404).send({ message: "endpoint not found" });
+	});
     })
-})
 
-app.use(errorHandler);
+    app.use(errorHandler);
+});
