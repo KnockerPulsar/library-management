@@ -1,19 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize'
 import pg from 'pg';
 
-// Download postgres
-// `sudo -u postgres -i`, default username on ubuntu is postgres
-// psql
-// \password
-// write new password twice
-// Set environment variables in the .env file
-// Example: 
-// 		DB_USER=postgres
-// 		DB_PASSWORD=password
-// 		DB_ADDRESS=localhost
-// 		DB_PORT=5432
-// 		DB_NAME=library-management
-
 
 export async function initDatabase(process: any) {
     const DB_USER = process.env.DB_USER;

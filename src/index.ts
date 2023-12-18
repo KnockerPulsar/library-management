@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express';
-import { Op } from 'sequelize'
 import { initDatabase } from './models'
 
 import booksRouter from './routes/books';
 import borrowersRouter from './routes/borrowers';
-import { ISBNExists, borrowerIdExists, errorHandler, isAlreadyBorrowed, parseISBN } from './utils'
+import { errorHandler } from './utils'
 
 require('express-async-errors');
 
