@@ -1,6 +1,10 @@
 import { Sequelize, DataTypes } from 'sequelize'
 import pg from 'pg';
 
+import { bookSchema } from '../models/Book'
+import { borrowerSchema } from '../models/Borrower';
+import { borrowingSchema } from '../models/Borrowing';
+
 export async function initDatabase() {
     const DB_USER = process.env.DB_USER;
     const DB_PASSWORD = process.env.DB_PASSWORD;
@@ -10,7 +14,7 @@ export async function initDatabase() {
 
     // https://medium.com/@aashisingh640/node-js-postgresql-create-database-if-it-doesnt-exist-1a93f38629ab
     const client = new pg.Client(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_ADDRESS}:${DB_PORT}`);
-	await client.connect();
+    await client.connect();
     const res = await client.query(`SELECT datname FROM pg_catalog.pg_database WHERE datname = '${DB_NAME}'`);
     if (res.rowCount === 0) {
 	console.log(`${DB_NAME} database not found, creating it.`);
@@ -23,95 +27,12 @@ export async function initDatabase() {
 
     const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_ADDRESS}:${DB_PORT}/${DB_NAME}`);
 
-	await sequelize.authenticate();
+    await sequelize.authenticate();
     console.log("Connected to postgres")
 
-    // Book: { ISBN, title, author, quantity, shelf location }
-    const Book = sequelize.define('Book', {
-	ISBN: {
-	    type: DataTypes.BIGINT,
-	    primaryKey: true,
-	    validate: { notEmpty: true }
-	},
+    const bookModel = bookSchema(sequelize);
+    const borrowerModel = borrowerSchema(sequelize);
+    const borrowingModel = borrowingSchema(sequelize, bookModel, borrowerModel);
 
-	title: {
-	    type: DataTypes.STRING,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	},
-
-	author: {
-	    type: DataTypes.STRING,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	},
-
-	quantity: {
-	    type: DataTypes.INTEGER,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	},
-
-	// ASSUMPTION: Arbitrary string
-	// Shelf 2B, A2, 9S, etc...
-	shelfLocation: {
-	    type: DataTypes.STRING,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	}
-    });
-
-    // Borrower: { ID, name, email, registered date }
-    // registered date is automatically created by postgres (createdAt)
-    const Borrower = sequelize.define('Borrower', {
-	id: {
-	    type: DataTypes.INTEGER, 
-	    primaryKey: true,
-	    autoIncrement: true,
-	},
-
-	name: {
-	    type: DataTypes.STRING,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	},
-
-	email: {
-	    type: DataTypes.STRING,
-	    allowNull: false,
-	    validate: { notEmpty: true }
-	},
-    });
-
-    // 	- Extra borrower id - ISBN table (This borrower has borrowed these
-    // 	books), with borrow (createdAt) and borrow durations.
-    const Borrowing = sequelize.define('Borrowing', {
-	BorrowerId: {
-	    type: DataTypes.INTEGER,
-	    references: {
-		model: Borrower,
-		key: 'id'
-	    }
-	},
-
-	BookISBN: {
-	    type: DataTypes.BIGINT,
-	    references: {
-		model: Book,
-		key: 'ISBN'
-	    }
-	},
-
-	dueDate: {
-	    type: DataTypes.DATE,
-	    allowNull: false,
-	}
-    }, {
-	timestamps: false
-    });
-
-    Book.belongsToMany(Borrower, { through: Borrowing });
-    Borrower.belongsToMany(Book, { through: Borrowing });
-
-    return { sequelize, Book, Borrower, Borrowing };
+    return { sequelize, Book: bookModel, Borrower: borrowerModel, Borrowing: borrowingModel };
 }
