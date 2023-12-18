@@ -31,6 +31,6 @@ Change any needed variables in the `.env` file.
 Just run `npm install`, this should install all the needed packages.
 
 ## Running
-Just run `npm start` from your terminal. The database should be created with the name specified in the `.env` file, along with all the needed tables. You can go to `localhost:${SERVER_PORT}/api-docs` to check out the documentation of all available endpoints.
+Just run `npm start` from your terminal. The database should be created with the name specified in the `.env` file, along with all the needed tables. You can go to `localhost:${SERVER_PORT}/docs` to check out the documentation of all available endpoints.
 
 
