@@ -6,11 +6,11 @@ type Borrower = ModelStatic<Model<any, any>>;
 type Borrowing = ModelStatic<Model<any, any>>;
 
 export async function ISBNExists(Book: Book, ISBNInteger: BigInt): Promise<boolean> {
-   return (await Book.findOne({ where: { ISBN: ISBNInteger }})) != null; 
+    return (await Book.findOne({ where: { ISBN: ISBNInteger }})) != null; 
 }
 
 export async function borrowerIdExists(Borrower: Borrower, id: number) {
-   return (await Borrower.findOne({ where: { id }})) != null; 
+    return (await Borrower.findOne({ where: { id }})) != null; 
 }
 
 export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number, BookISBN: BigInt) {
@@ -22,5 +22,9 @@ export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number
 // Works with the help of express-async-errors
 export async function errorHandler(error: Error, _: Request, response: Response, next: any) {
     response.status(500).send({ 'message': 'Server error!' }); 
-    next(error);
 }
+
+export function parseISBN(ISBNString: string): BigInt {
+    return BigInt((ISBNString as string).replaceAll('-', ''));
+}
+

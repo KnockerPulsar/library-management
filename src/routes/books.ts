@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ModelStatic, Model, Op } from 'sequelize';
-import { ISBNExists, errorHandler } from '../utils';
+import { ISBNExists, errorHandler, parseISBN } from '../utils';
 
 type Book = ModelStatic<Model<any, any>>;
 // Operations:
@@ -18,10 +18,6 @@ function arePostParametersValid(ISBN: BigInt, title: string, author: string, qua
 	&& isNaN(Number.parseInt(author))
 	&& !isNaN(quantity)
     );
-}
-
-function parseISBN(ISBNString: string): BigInt {
-    return BigInt((ISBNString as string).replaceAll('-', ''));
 }
 
 export default (Book: Book) => {
