@@ -75,7 +75,6 @@ export default (Book: Book) => {
      *             schema:
      *               $ref: '#/components/schemas/Book'
      *       400:
-     *         description: Invalid parameters or book already exists
      *         content:
      *           application/json:
      *             schema:
@@ -180,7 +179,7 @@ export default (Book: Book) => {
 	    return;
 	}
 
-	const [ rowsUpdated, ...changed ] = await Book.update(
+	const [ _rowsUpdated, ...changed ] = await Book.update(
 	    updateFields,
 	    { where: { ISBN }, returning: true},
 	);
@@ -209,8 +208,7 @@ export default (Book: Book) => {
      *                 type: number
      *                 example: 978316148420
      *     responses:
-     *       204:
-     *         description: The updated book.
+     *       200:
      *         content:
      *           application/json:
      *             schema:
@@ -248,7 +246,7 @@ export default (Book: Book) => {
 	} 
 
 	Book.destroy({ where: { ISBN } });
-	response.status(204).send({ message: "Book deleted successfully" });
+	response.status(200).send({ message: "Book deleted successfully" });
     });
 
     /**
@@ -278,7 +276,7 @@ export default (Book: Book) => {
      *                 example: Knot A. Snail
      *     responses:
      *       200:
-     *         description: The updated book.
+     *         description: The data of the requested books.
      *         content:
      *           application/json:
      *             schema:
