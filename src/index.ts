@@ -8,6 +8,9 @@ import { ISBNExists, borrowerIdExists, errorHandler, isAlreadyBorrowed, parseISB
 
 require('express-async-errors');
 
+import swaggerJsdoc from "swagger-jsdoc";
+import swaggerUi from "swagger-ui-express";
+
 import 'dotenv/config';
 
 const app = express();
@@ -18,6 +21,23 @@ app.use((request: Request, _: Response, next: any) => {
     next();
 });
 
+const swaggerJsdocOptions = {
+    failOnErrors: true,
+    definition: {
+	openapi: "3.1.0",
+	info: {
+	    title: "Library management API with Swagger",
+	    version: "0.1.0",
+	    description: "This is a simple CRUD API application made with Express and documented with Swagger",
+	},
+	servers: [ { url: `http://localhost:${process.env.SERVER_PORT}`, }, ],
+    },
+	apis: ["./src/routes/*.ts"],
+};
+
+const specs = swaggerJsdoc(swaggerJsdocOptions);
+console.log(specs);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, { explorer: true }));
 
 app.listen(process.env.SERVER_PORT, () => { console.log(`Listening at port ${process.env.SERVER_PORT}`) });
 
