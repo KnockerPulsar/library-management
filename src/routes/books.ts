@@ -35,10 +35,19 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { ModelStatic, Model, Op } from 'sequelize';
-import { ISBNExists, errorHandler, parseISBN } from '../utils';
+import { ModelStatic, Model, Op, Sequelize } from 'sequelize';
+import { ISBNExists, errorHandler, parseISBN, borrowerIdExists, isAlreadyBorrowed } from '../utils';
 
 type Book = ModelStatic<Model<any, any>>;
+type Borrower = ModelStatic<Model<any, any>>;
+type Borrowing = ModelStatic<Model<any, any>>;
+
+type DB = {
+    sequelize: Sequelize; 
+    Book: Book; 
+    Borrower: Borrower; 
+    Borrowing: Borrowing;
+};
 
 function arePostParametersValid(ISBN: BigInt, title: string, author: string, quantity: number): boolean {
     return (
@@ -49,7 +58,7 @@ function arePostParametersValid(ISBN: BigInt, title: string, author: string, qua
     );
 }
 
-export default (Book: Book) => {
+export default (db: DB) => {
     const router = Router();
 
     /**
@@ -106,13 +115,13 @@ export default (Book: Book) => {
 	    return;
 	}
 
-	if(await ISBNExists(Book, ISBNInteger)) {
+	if(await ISBNExists(db.Book, ISBNInteger)) {
 	    response.status(400).send({ message: "Book with the same ISBN already exists" });
 	    return;
 	}
 
 	const book = { ISBN: ISBNInteger, title, author, quantity, shelfLocation };
-	await Book.create(book);
+	await db.Book.create(book);
 	response.status(201).send(book);
     });
 
@@ -163,7 +172,7 @@ export default (Book: Book) => {
     router.patch('/', async (request: Request, response: Response) => {
 	const { ISBN, title, author, quantity, shelfLocation } = request.body;
 
-	if(!(await ISBNExists(Book, ISBN))) {
+	if(!(await ISBNExists(db.Book, ISBN))) {
 	    response.status(400).send({ message: "ISBN does not exist." });
 	    return;
 	}
@@ -179,7 +188,7 @@ export default (Book: Book) => {
 	    return;
 	}
 
-	const [ _rowsUpdated, ...changed ] = await Book.update(
+	const [ _rowsUpdated, ...changed ] = await db.Book.update(
 	    updateFields,
 	    { where: { ISBN }, returning: true},
 	);
@@ -240,12 +249,12 @@ export default (Book: Book) => {
     router.delete('/', async (request: Request, response: Response) => {
 	const ISBN = request.body.ISBN;
 
-	if(!(await ISBNExists(Book, ISBN))) {
+	if(!(await ISBNExists(db.Book, ISBN))) {
 	    response.status(400).send({ message: "ISBN does not exist"});
 	    return;
 	} 
 
-	Book.destroy({ where: { ISBN } });
+	db.Book.destroy({ where: { ISBN } });
 	response.status(200).send({ message: "Book deleted successfully" });
     });
 
@@ -315,7 +324,7 @@ export default (Book: Book) => {
 	const { ISBN, title, author } = request.body;
 
 	if(!ISBN && !title && !author) {
-	    response.status(200).send(await Book.findAll());
+	    response.status(200).send(await db.Book.findAll());
 	    return;
 	}
 
@@ -330,9 +339,321 @@ export default (Book: Book) => {
 	if(title) queryFields.push({title});
 	if(author) queryFields.push({author});
 
-	response.status(200).send(await Book.findAll({ 
+	response.status(200).send(await db.Book.findAll({ 
 	    where: { [Op.or] : queryFields } 
 	}));
+    });
+    
+    
+    /**
+     * @swagger
+     * /books/borrowed:
+     *   post:
+     *     summary: Borrow a book
+     *     tags: [Books]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               bookISBN:
+     *                 type: number
+     *                 example: 978316148420
+     *               borrowerId:
+     *                 type: number
+     *                 example: 42
+     *     responses:
+     *       200:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Book successfully borrowed
+     *       400:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   enum:
+     *                     - Invalid requestt parameters
+     *                     - Invalid borrower id
+     *                     - Invalid ISBN
+     *                     - Invalid borrow duration
+     *                     - Book already borrowed
+     *                     - Book out of stock
+     *       500:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Server error!
+     */
+    router.post('/borrowed', async (request: Request, response: Response) => {
+	const { borrowerId, bookISBN, borrowDuration } = request.body;
+
+	if(!borrowerId || !bookISBN || !borrowDuration) {
+	    response.status(400).send({ message: "Invalid request parameters" });
+	    return;
+	}
+
+	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+	    response.status(400).send({ message: "Invalid borrower id" });
+	    return;
+	}
+
+	if(!(await ISBNExists(db.Book, bookISBN))) {
+	    response.status(400).send({ message: "Invalid ISBN" });
+	    return;
+	}
+
+	// Borrow duration unspecified, will assume 1, 7, and 30 days.
+	if(!([1, 7, 30].includes(borrowDuration))) {
+	    response.status(400).send({ message: "Invalid borrow duration" });
+	    return;
+	}
+
+	if((await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
+	    response.status(400).send({ message: "Book already borrowed" });
+	    return;
+	}
+
+	const row = (await db.Book.findByPk(bookISBN, { attributes: ['ISBN', 'quantity'] }))!;
+	const quantity: number = row!.get('quantity') as number;
+
+	if(quantity == 0) {
+	    response.status(400).send({ message: "Book out of stock" });
+	    return;
+	}
+
+	let dueDate = new Date();
+	dueDate.setDate(dueDate.getDate() + borrowDuration);
+
+	// For some reason, sequelize requires the keys of this table to have the first letter 
+	// capitalized (for foreign keys at least). Not doing so will just duplicate the foreign
+	// keys with capitalized names.
+	await db.Borrowing.create({
+	    BorrowerId: borrowerId,
+	    BookISBN: bookISBN,
+	    dueDate
+	});
+	row.set('quantity', quantity - 1);
+	await row.save();
+
+	response.status(200).send({ message: "Book borrowed successfully" });
+    });
+
+    /**
+     * @swagger
+     * tags:
+     *   name: Books
+     *   description: The book managing API
+     * /books/borrowed:
+     *   delete:
+     *     summary: Return a borrowed book
+     *     tags: [Books]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               ISBN:
+     *                 type: number
+     *                 example: 978316148420
+     *               borrowerId:
+     *                 type: number
+     *                 example: 68
+     *     responses:
+     *       200:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Book returned successfully
+     *       400:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   enum:
+     *                     - Invalid request parameters
+     *                     - Invalid borrower id
+     *                     - Invalid ISBN
+     *                     - Book with the given ISBN is not borrowed 
+     *       500:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Server error!
+     */
+    router.delete('/borrowed',  async (request: Request, response: Response) => {
+	const { borrowerId, bookISBN } = request.body;
+
+	if(!borrowerId || !bookISBN) {
+	    response.status(400).send({ message: "Invalid request parameters" });
+	    return;
+	}
+
+	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+	    response.status(400).send({ message: "Invalid borrower id" });
+	    return;
+	}
+
+	if(!(await ISBNExists(db.Book, bookISBN))) {
+	    response.status(400).send({ message: "Invalid ISBN" });
+	    return;
+	}
+
+	if(!(await isAlreadyBorrowed(db.Borrowing, borrowerId, bookISBN))) {
+	    response.status(400).send({ message: "Book with the given ISBN is not borrowed" });
+	    return;
+	}
+
+	const BorrowerId = borrowerId;
+	const BookISBN = bookISBN;
+	await db.Borrowing.destroy({ where: { [Op.and]: [BorrowerId, BookISBN] } });
+	await db.Book.increment({ quantity: +1 }, { where: { ISBN: BookISBN } });
+	response.status(200).send({ message: "Book returned successfully" });
+    });
+
+    /**
+     * @swagger
+     * tags:
+     *   name: Books
+     *   description: The book managing API
+     * /books/borrowed:
+     *   get:
+     *     summary: Get the data of all or a specific set of borrowed books
+     *     tags: [Books]
+     *     requestBody:
+     *       required: yes
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               borrowerId:
+     *                 type: number
+     *                 example: 978316148420
+     *     responses:
+     *       200:
+     *         description: The data of the requested books.
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 type: object
+     *                 properties:
+     *                   BookISBN:
+     *                     type: number
+     *                   dueDate:
+     *                     type: string
+     *                     format: date-time
+     *       400:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   enum:
+     *                     - Invalid request parameters
+     *                     - Invalid borrower id
+     *       500:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Server error!
+     */
+    router.get('/borrowed', async (request: Request, response: Response) => {
+	const { borrowerId } = request.body;
+
+	if(!borrowerId) {
+	    response.status(400).send({ message: "Invalid request parameters" });
+	    return;
+	}
+
+	if(!(await borrowerIdExists(db.Borrower, borrowerId))) {
+	    response.status(400).send({ message: "Invalid borrower id" });
+	    return;
+	}
+
+
+	response
+	    .status(200)
+	    .send(await db.Borrowing.findAll({ 
+		where: { BorrowerId: borrowerId },
+		attributes: [ 'BookISBN', 'dueDate' ] 
+	    }));
+    });
+
+    /**
+     * @swagger
+     * tags:
+     *   name: Books
+     *   description: The book managing API
+     * /books/overdue:
+     *   get:
+     *     summary: Get the ISBNs of all overdue books, their borrower ids, and the due date
+     *     tags: [Books]
+     *     responses:
+     *       200:
+     *         description: The data of all overdue books, their borrower ids, and the due date
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 type: object
+     *                 properties:
+     *                   BorrowerId:
+     *                     type: number
+     *                   BookISBN:
+     *                     type: number
+     *                   dueDate:
+     *                     type: string
+     *                     format: date-time
+     *       500:
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 message:
+     *                   type: string
+     *                   example: Server error!
+     */
+    router.get('/overdue',  async (_request: Request, response: Response) => {
+	const today = (new Date());
+	response.status(200).send(await db.Borrowing.findAll({ where: { dueDate: { [Op.lt]: today } } }));
     });
 
     // Use the error handler for this router
