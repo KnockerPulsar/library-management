@@ -36,7 +36,7 @@
 
 import { Router, Request, Response } from 'express';
 import { ModelStatic, Model, Op, Sequelize } from 'sequelize';
-import { ISBNExists, errorHandler, parseISBN, borrowerIdExists, isAlreadyBorrowed } from '../utils';
+import { ISBNExists, errorHandler, parseISBN, borrowerIdExists, isAlreadyBorrowed } from '../shared/utils';
 
 type Book = ModelStatic<Model<any, any>>;
 type Borrower = ModelStatic<Model<any, any>>;

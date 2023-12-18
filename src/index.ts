@@ -3,7 +3,7 @@ import { initDatabase } from './shared/db'
 
 import booksRouter from './routes/books';
 import borrowersRouter from './routes/borrowers';
-import { errorHandler } from './utils'
+import { errorHandler } from './shared/utils'
 
 require('express-async-errors');
 

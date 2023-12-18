@@ -27,7 +27,7 @@
 import { Router, Request, Response } from 'express';
 import { ModelStatic, Model } from 'sequelize';
 import validator from 'email-validator';
-import { borrowerIdExists, errorHandler } from '../utils';
+import { borrowerIdExists, errorHandler } from '../shared/utils';
 
 type Borrower = ModelStatic<Model<any, any>>;
 
