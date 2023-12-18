@@ -12,9 +12,7 @@ import swaggerUi from "swagger-ui-express";
 
 import 'dotenv/config';
 
-
-
-initDatabase(process).then((db) => {
+initDatabase().then((db) => {
     db.sequelize.sync().then(() => {
 
 	const app = express();
@@ -52,6 +50,6 @@ initDatabase(process).then((db) => {
 	app.use(errorHandler);
 
 	app.listen(process.env.SERVER_PORT, () => { console.log(`Listening at port ${process.env.SERVER_PORT}`) });
-    })
+    });
 });
 
