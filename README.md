@@ -1,10 +1,15 @@
 # Library Management System
 This is a small express.js project that implements a REST API to manage books, borrowers, and borrowing.
 
-![api screenshot](./images/api.png)  
-***Api preview***
-![Schema Diagram](./images/schema-diagram.png)  
-***Schema diagram***
+<p align="center">
+    <img src="./images/api.png" alt= "Api preview">
+    <p>Api Preview</p>
+</p>
+
+<p align="center">
+    <img src="./images/schema-diagram.png" alt= "Schema diagram">
+    <p>Schema diagram</p>
+</p>
 
 # How to use
 ## Dependencies
