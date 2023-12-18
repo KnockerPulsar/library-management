@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { initDatabase } from './models'
 
 import booksRouter from './routes/books';
@@ -15,7 +15,7 @@ import 'dotenv/config';
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded());
-app.use((request: Request, _: Response, next: any) => {
+app.use((request: Request, _: Response, next: NextFunction) => {
     console.log(`${request.url}: ${request.method}`);
     next();
 });
@@ -40,7 +40,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, { explorer: true })
 app.listen(process.env.SERVER_PORT, () => { console.log(`Listening at port ${process.env.SERVER_PORT}`) });
 
 initDatabase(process).then((db) => {
-    db.sequelize.sync().then((_: any) => {
+    db.sequelize.sync().then(() => {
 	app.use('/books', booksRouter(db));
 	app.use('/borrowers', borrowersRouter(db.Borrower));
 

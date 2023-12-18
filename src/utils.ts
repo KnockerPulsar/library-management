@@ -1,5 +1,5 @@
 import { ModelStatic, Model, Op } from 'sequelize';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 type Book = ModelStatic<Model<any, any>>;
 type Borrower = ModelStatic<Model<any, any>>;
@@ -20,7 +20,7 @@ export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number
 // Error handling function
 // Returns a 500 code, instead of crashing the whole application
 // Works with the help of express-async-errors
-export async function errorHandler(error: Error, _: Request, response: Response, next: any) {
+export async function errorHandler(error: Error, _: Request, response: Response, next: NextFunction) {
     response.status(500).send({ 'message': 'Server error!' }); 
     next(error);
 }
