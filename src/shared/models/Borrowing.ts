@@ -3,7 +3,7 @@ import { Book } from './Book';
 import { Borrower } from './Borrower';
 
 export function borrowingSchema(sequelize: Sequelize, bookModel: Book, borrowerModel: Borrower) {
-    // 	- Extra borrower id - ISBN table (This borrower has borrowed these
+    // 	Extra borrower id - ISBN table (This borrower has borrowed these
     // 	books), with borrow (createdAt) and borrow durations.
     const borrowingModel = sequelize.define('Borrowing', {
 	BorrowerId: {

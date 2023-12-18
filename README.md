@@ -24,8 +24,13 @@ sudo -u postgres -i
 psql
 ```
 
-Then `\password`, write your password twice (preferably "password" for testing purposes)
-Change any needed variables in the `.env` file.
+Then inside postgres:
+```
+\password -- Type your password twice
+create database 'library-management';
+```
+
+Then change any needed variables in the `.env` file (password, db name, etc...).
 
 ### Node
 Just run `npm install`, this should install all the needed packages.
