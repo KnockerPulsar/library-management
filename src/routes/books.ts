@@ -39,9 +39,10 @@ import { Op } from 'sequelize';
 import { ISBNExists, errorHandler, parseISBN, borrowerIdExists, isAlreadyBorrowed } from '../shared/utils';
 import { DB } from '../shared/db';
 
-function arePostParametersValid(ISBN: BigInt, title: string, author: string, quantity: number): boolean {
+function arePostParametersValid(ISBN: string, title: string, author: string, quantity: number): boolean {
+    const isNum = (num: string) => /^(\d|-)+$/.test(num);
     return (
-	ISBN
+	isNum(ISBN)
 	&& isNaN(Number.parseInt(title))
 	&& isNaN(Number.parseInt(author))
 	&& !isNaN(quantity)
@@ -97,20 +98,20 @@ export default (db: DB) => {
     router.post('/', async (request: Request, response: Response) => {
 	const { ISBN, title, author, quantity, shelfLocation } = request.body;
 
-	const ISBNInteger = parseISBN(ISBN);
-	const parametersValid = arePostParametersValid(ISBNInteger, title, author, quantity);
+	const ISBNParsed = parseISBN(ISBN);
+	const parametersValid = arePostParametersValid(ISBNParsed, title, author, quantity);
 
 	if(!parametersValid) {
 	    response.status(400).send({ message: "Invalid parameters" });
 	    return;
 	}
 
-	if(await ISBNExists(db.Book, ISBNInteger)) {
+	if(await ISBNExists(db.Book, ISBNParsed)) {
 	    response.status(400).send({ message: "Book with the same ISBN already exists" });
 	    return;
 	}
 
-	const book = { ISBN: ISBNInteger, title, author, quantity, shelfLocation };
+	const book = { ISBN: ISBNParsed, title, author, quantity, shelfLocation };
 	await db.Book.create(book);
 	response.status(201).send(book);
     });
@@ -318,14 +319,14 @@ export default (db: DB) => {
 	    return;
 	}
 
-	const ISBNInteger = 
+	const ISBNParsed = 
 	    request.body.ISBN !== undefined? 
 		parseISBN(request.body.ISBN)
 		: null;
 
 	let queryFields = [];
 
-	if(ISBNInteger) queryFields.push({ISBN: ISBNInteger});
+	if(ISBNParsed) queryFields.push({ISBN: ISBNParsed});
 	if(title) queryFields.push({title});
 	if(author) queryFields.push({author});
 

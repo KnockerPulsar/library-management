@@ -4,8 +4,8 @@ import { Book } from '../models/Book';
 import { Borrower } from '../models/Borrower';
 import { Borrowing } from '../models/Borrowing';
 
-export async function ISBNExists(Book: Book, ISBNInteger: BigInt): Promise<boolean> {
-    return (await Book.findOne({ where: { ISBN: ISBNInteger }})) !== null; 
+export async function ISBNExists(Book: Book, ISBN: string): Promise<boolean> {
+    return (await Book.findOne({ where: { ISBN }})) !== null; 
 }
 
 export async function borrowerIdExists(Borrower: Borrower, id: number) {
@@ -25,7 +25,7 @@ export async function errorHandler(error: Error, _request: Request, response: Re
     response.status(500).send({ 'message': 'Server error!' }); 
 }
 
-export function parseISBN(ISBNString: string): BigInt {
-    return BigInt((ISBNString as string).replaceAll('-', ''));
+export function parseISBN(ISBNString: string): string {
+    return ISBNString.replaceAll('-', '');
 }
 
