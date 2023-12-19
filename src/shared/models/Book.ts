@@ -36,5 +36,19 @@ export function bookSchema(sequelize: Sequelize) {
 	    allowNull: false,
 	    validate: { notEmpty: true }
 	}
+    }, {
+	indexes: [
+	    // Index for author
+	    {
+		using: 'btree',
+		fields: ['author']
+	    },
+
+	    // Index for title
+	    {
+		using: 'btree',
+		fields: ['title']
+	    }
+	]
     });
 } 

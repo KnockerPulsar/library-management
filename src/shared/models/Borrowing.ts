@@ -29,7 +29,13 @@ export function borrowingSchema(sequelize: Sequelize, bookModel: Book, borrowerM
 	    allowNull: false,
 	}
     }, {
-	timestamps: false
+	timestamps: false,
+	indexes: [
+	    {
+		using: 'btree',
+		fields: ['BorrowerId']
+	    },
+	]
     });
 
     bookModel.belongsToMany(borrowerModel, { through: borrowingModel });
