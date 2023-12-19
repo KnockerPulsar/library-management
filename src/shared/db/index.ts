@@ -1,11 +1,17 @@
-import { Sequelize, DataTypes } from 'sequelize'
-import pg from 'pg';
+import { Sequelize } from 'sequelize'
 
-import { bookSchema } from '../models/Book'
-import { borrowerSchema } from '../models/Borrower';
-import { borrowingSchema } from '../models/Borrowing';
+import { Book, bookSchema } from '../models/Book'
+import { Borrower, borrowerSchema } from '../models/Borrower';
+import { Borrowing, borrowingSchema } from '../models/Borrowing';
 
-export async function initDatabase() {
+export interface DB {
+    sequelize: Sequelize; 
+    Book: Book; 
+    Borrower: Borrower; 
+    Borrowing: Borrowing;
+};
+
+export async function initDatabase(): Promise<DB> {
     const DB_USER = process.env.DB_USER;
     const DB_PASSWORD = process.env.DB_PASSWORD;
     const DB_ADDRESS = process.env.DB_ADDRESS;

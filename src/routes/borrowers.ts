@@ -25,11 +25,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { ModelStatic, Model } from 'sequelize';
 import validator from 'email-validator';
 import { borrowerIdExists, errorHandler } from '../shared/utils';
+import { Borrower } from '../shared/models/Borrower';
 
-type Borrower = ModelStatic<Model<any, any>>;
 
 async function emailExists(Borrower: Borrower, email: string): Promise<boolean> {
    return (await Borrower.findOne({ where: { email }})) != null; 

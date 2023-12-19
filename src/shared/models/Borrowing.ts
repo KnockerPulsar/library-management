@@ -2,6 +2,8 @@ import { Sequelize, DataTypes, ModelStatic, Model } from "sequelize";
 import { Book } from './Book';
 import { Borrower } from './Borrower';
 
+export type Borrowing = ModelStatic<Model<any, any>>;
+
 export function borrowingSchema(sequelize: Sequelize, bookModel: Book, borrowerModel: Borrower) {
     // 	Extra borrower id - ISBN table (This borrower has borrowed these
     // 	books), with borrow (createdAt) and borrow durations.
@@ -35,5 +37,3 @@ export function borrowingSchema(sequelize: Sequelize, bookModel: Book, borrowerM
 
     return borrowingModel;
 }
-
-export type Borrowing = ModelStatic<Model<any, any>>;
