@@ -319,7 +319,7 @@ export default (db: DB) => {
 	}
 
 	const ISBNInteger = 
-	    request.body.ISBN != undefined? 
+	    request.body.ISBN !== undefined? 
 		parseISBN(request.body.ISBN)
 		: null;
 

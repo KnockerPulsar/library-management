@@ -31,7 +31,7 @@ import { Borrower } from '../shared/models/Borrower';
 
 
 async function emailExists(Borrower: Borrower, email: string): Promise<boolean> {
-   return (await Borrower.findOne({ where: { email }})) != null; 
+   return (await Borrower.findOne({ where: { email }})) !== null; 
 }
 
 async function checkEmail(Borrower: Borrower, email: string) {

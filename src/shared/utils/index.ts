@@ -5,11 +5,11 @@ import { Borrower } from '../models/Borrower';
 import { Borrowing } from '../models/Borrowing';
 
 export async function ISBNExists(Book: Book, ISBNInteger: BigInt): Promise<boolean> {
-    return (await Book.findOne({ where: { ISBN: ISBNInteger }})) != null; 
+    return (await Book.findOne({ where: { ISBN: ISBNInteger }})) !== null; 
 }
 
 export async function borrowerIdExists(Borrower: Borrower, id: number) {
-    return (await Borrower.findOne({ where: { id }})) != null; 
+    return (await Borrower.findOne({ where: { id }})) !== null; 
 }
 
 export async function isAlreadyBorrowed(Borrowing: Borrowing, BorrowerId: number, BookISBN: BigInt) {
